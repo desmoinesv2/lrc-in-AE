@@ -20,11 +20,11 @@ const INITIAL_CONFIG: ScriptConfig = {
   inactiveTextColor: '#888888', // Inactive color (Grey)
   activeScale: 1.1, 
   inactiveOpacity: 60,
-  blurAmount: 12,
+  blurAmount: 20, // Increased blur for better depth
   spacing: 180, // Adjusted for larger resolution
   motionDamping: 0.8, // Slightly more damping for sticky feel
   alignment: 'left',
-  textLift: 25, // Pixels to rise when active
+  textLift: 10, // Reduced lift for subtlety
 };
 
 const App: React.FC = () => {
@@ -118,7 +118,7 @@ const App: React.FC = () => {
             </div>
             
             <div className="h-10 text-xs text-neutral-500 flex items-center justify-center">
-                预览功能：粘滞滚动 + 逐字填充 (Clip-Path 修复) + 上浮
+                预览功能：粘滞滚动 + 逐字填充 (Clip-Path 修复) + 上浮缓动
             </div>
         </div>
       </div>

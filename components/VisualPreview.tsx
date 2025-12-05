@@ -59,25 +59,28 @@ const VisualPreview: React.FC<VisualPreviewProps> = ({ lines, config }) => {
       }
   }
 
-  // Updated to be slower and more "viscous" (heavier damping)
+  // Viscous scroll transition
   const bounceTransition = "transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1)";
 
   return (
     <div className="flex flex-col h-full bg-black rounded-lg border border-neutral-700 shadow-xl overflow-hidden relative">
        {/* Preview Canvas */}
-       <div className="flex-1 relative overflow-hidden" style={{
+       <div className="flex-1 relative overflow-hidden bg-black" style={{
            fontFamily: config.fontFamily.split('-')[0] || 'sans-serif',
        }}>
            <div className={`absolute inset-0 flex flex-col justify-center ${config.alignment === 'left' ? 'items-start pl-12' : 'items-center'}`}
                 style={{
                     transform: `translateY(${-activeIndex * config.spacing}px)`,
-                    transition: bounceTransition, // Viscous scroll
+                    transition: bounceTransition,
+                    willChange: 'transform'
                 }}
            >
                {lines.map((line, idx) => {
                    const isActive = idx === activeIndex;
                    
-                   // Strict blur logic: 0 if active, otherwise blurAmount
+                   // Logic:
+                   // Active Line: 0 blur, Scale Up.
+                   // Others: Blur, Scale 1, Low Opacity.
                    const blur = isActive ? 0 : config.blurAmount;
                    const scale = isActive ? config.activeScale : 1;
                    
@@ -90,16 +93,24 @@ const VisualPreview: React.FC<VisualPreviewProps> = ({ lines, config }) => {
                        const elapsed = currentTime - startTime;
                        fillPercentage = Math.min(100, Math.max(0, (elapsed / duration) * 100));
                    } else if (currentTime > line.timestamp) {
-                       fillPercentage = 100; // Past lines are full
+                       fillPercentage = 100; // Past lines are full white
                    }
+
+                   // Clip Paths using inset
+                   // Gray Layer (Base): Show RIGHT side (Unfilled) -> Hide Left side (Filled)
+                   // clip-path: inset(top right bottom left)
+                   const grayClip = `inset(0 0 0 ${fillPercentage}%)`;
+
+                   // White Layer (Active): Show LEFT side (Filled) -> Hide Right side (Unfilled)
+                   const whiteClip = `inset(0 ${100 - fillPercentage}% 0 0)`;
 
                    return (
                        <div 
                         key={line.id}
-                        className={`absolute w-full origin-left flex ${config.alignment === 'center' ? 'justify-center' : 'justify-start'}`}
+                        className={`absolute w-full flex ${config.alignment === 'center' ? 'justify-center' : 'justify-start'}`}
                         style={{
                             top: '50%',
-                            marginTop: -45, // Adjusted for larger font
+                            marginTop: -45, // Centering adjustment
                             transform: `translateY(${idx * config.spacing}px) scale(${scale})`,
                             transition: `transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.5s ease, opacity 0.5s ease`, 
                             transformOrigin: config.alignment === 'left' ? '0% 50%' : '50% 50%',
@@ -107,34 +118,35 @@ const VisualPreview: React.FC<VisualPreviewProps> = ({ lines, config }) => {
                             filter: `blur(${blur}px)`,
                             fontSize: `${config.fontSize}px`,
                             fontWeight: isActive ? 700 : 500,
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            zIndex: isActive ? 10 : 1
                         }}
                        >
-                           {/* Karaoke Fill Effect with Lift using clip-path */}
-                           <div className="relative">
-                                {/* 1. Base Layer (Inactive Color - Gray) */}
+                           {/* Container for the dual-layer text */}
+                           <div className="relative inline-block">
+                                {/* 1. Base Layer (Gray, Down) */}
                                 <span style={{ 
                                     color: config.inactiveTextColor,
-                                    display: 'block' 
+                                    display: 'block',
+                                    clipPath: grayClip,
+                                    willChange: 'clip-path'
                                 }}>
                                     {line.text}
                                 </span>
                                 
-                                {/* 2. Active Layer (White + Lift) - Overlay */}
+                                {/* 2. Active Layer (White, Lifted) */}
                                 <span 
                                     style={{ 
                                         position: 'absolute',
                                         top: 0,
                                         left: 0,
                                         color: config.textColor, 
-                                        whiteSpace: 'nowrap',
-                                        // The lift effect:
-                                        transform: isActive ? `translateY(-${config.textLift}px)` : 'none', 
                                         display: 'block',
-                                        transition: 'transform 0.3s ease',
-                                        // The wipe effect using clip-path:
-                                        // Using -500% to 500% vertically ensures we don't clip the lifted text
-                                        clipPath: `polygon(0% -500%, ${fillPercentage}% -500%, ${fillPercentage}% 500%, 0% 500%)`
+                                        clipPath: whiteClip,
+                                        willChange: 'clip-path',
+                                        // Apply lift only to the white part. 
+                                        // This creates the "wave" effect where the white text pops up as it fills.
+                                        transform: `translateY(-${config.textLift}px)` 
                                     }}
                                 >
                                     {line.text}
@@ -146,13 +158,13 @@ const VisualPreview: React.FC<VisualPreviewProps> = ({ lines, config }) => {
            </div>
            
            {/* Timecode overlay */}
-           <div className="absolute top-4 right-4 text-xs font-mono text-neutral-500">
+           <div className="absolute top-4 right-4 text-xs font-mono text-neutral-500 z-50">
                {currentTime.toFixed(2)}s
            </div>
        </div>
 
        {/* Controls */}
-       <div className="h-14 bg-neutral-900 border-t border-neutral-700 flex items-center justify-center space-x-6 px-4">
+       <div className="h-14 bg-neutral-900 border-t border-neutral-700 flex items-center justify-center space-x-6 px-4 z-50">
             <button onClick={() => seek(-5)} className="text-neutral-400 hover:text-white transition"><Rewind size={20}/></button>
             <button 
                 onClick={togglePlay} 

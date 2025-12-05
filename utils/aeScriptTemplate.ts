@@ -172,8 +172,6 @@ export const generateAeScript = (config: ScriptConfig): string => {
             var smoothSliderProp = smoothEffect.property("ADBE Slider Control-0001");
             
             // Updated Bounce Expression for "Viscous/Sticky" feel
-            // Lower frequency (1.2) = slower wobble
-            // Higher decay (5.0) = settles faster (less oscillation), acting like high viscosity
             var bounceExpr = 
                 "var amp = " + (0.5 * cfg.damping) + ";\\n" +
                 "var freq = 1.2;\\n" +
@@ -227,46 +225,62 @@ export const generateAeScript = (config: ScriptConfig): string => {
                 tLayer.property("ADBE Transform Group").property("ADBE Anchor Point").setValue([0, 0]); 
 
                 // --- ANIMATOR (Fill & Lift) ---
-                try {
-                    // Get Text Properties
-                    var textGroup = tLayer.property("ADBE Text Properties");
-                    // Get Animators Group
-                    var animators = textGroup.property("ADBE Text Animators");
-                    // Add new Animator
-                    var animGroup = animators.addProperty("ADBE Text Animator");
-                    animGroup.name = "Fill & Lift Animator";
-                    
-                    // ADBE Text Animator Properties
-                    var animProps = animGroup.property("ADBE Text Animator Properties");
-                    
-                    // 1. Fill Color (Turns White)
-                    var fillProp = animProps.addProperty("ADBE Text Fill Color");
-                    fillProp.setValue(cfg.textColor);
+                
+                // Get Text Properties
+                var textGroup = tLayer.property("ADBE Text Properties");
+                // Get Animators Group
+                var animators = textGroup.property("ADBE Text Animators");
+                // Add new Animator
+                var animGroup = animators.addProperty("ADBE Text Animator");
+                animGroup.name = "Highlight Animator";
+                
+                // ADBE Text Animator Properties
+                var animProps = animGroup.property("ADBE Text Animator Properties");
+                
+                // 1. Fill Color (Turns White)
+                var fillProp = animProps.addProperty("ADBE Text Fill Color");
+                fillProp.setValue(cfg.textColor);
 
-                    // 2. Position Lift (Moves Up)
-                    // When the selector selects the text (to make it white), it will also apply this position offset.
-                    var posProp = animProps.addProperty("ADBE Text Position");
-                    posProp.setValue([0, -cfg.textLift]);
-                    
-                    // Access Range Selector
-                    var selectors = animGroup.property("ADBE Text Selectors");
-                    var rangeSelector;
-                    
-                    if (selectors.numProperties > 0) {
-                        rangeSelector = selectors.property(1); 
-                    } else {
-                        rangeSelector = selectors.addProperty("ADBE Text Selector");
-                    }
-                    
-                    // ADBE Text Percent End
-                    var endProp = rangeSelector.property("ADBE Text Percent End");
-                    
-                    var fillExpr = 
-                        "linear(time, " + tStart + ", " + tEnd + ", 0, 100);";
-                    endProp.expression = fillExpr;
-                } catch(err) {
-                    // Fail silently for animator errors
+                // 2. Position Lift (Moves Up)
+                // Robust fallback logic for 2D vs 3D position property
+                var posProp = null;
+                // Helper to safely add property
+                function addAnimatorProperty(propsGroup, matchName) {
+                    try { return propsGroup.addProperty(matchName); } catch(e) { return null; }
                 }
+                
+                posProp = addAnimatorProperty(animProps, "ADBE Text Position");
+                if (!posProp) {
+                     posProp = addAnimatorProperty(animProps, "ADBE Text Position 3D");
+                }
+                
+                if (posProp) {
+                    // Check dimension of property (2 or 3)
+                    if (posProp.value.length === 3) {
+                         posProp.setValue([0, -cfg.textLift, 0]);
+                    } else {
+                         posProp.setValue([0, -cfg.textLift]);
+                    }
+                }
+                
+                // Access Range Selector
+                var selectors = animGroup.property("ADBE Text Selectors");
+                
+                // IMPORTANT: Remove existing selectors to ensure clean state
+                while (selectors.numProperties > 0) {
+                    selectors.property(1).remove();
+                }
+
+                // Add a fresh Range Selector
+                var rangeSelector = selectors.addProperty("ADBE Text Selector");
+                
+                // ADBE Text Percent End
+                var endProp = rangeSelector.property("ADBE Text Percent End");
+                
+                // Use ease() instead of linear() for smoother character animation
+                var fillExpr = 
+                    "ease(time, " + tStart + ", " + tEnd + ", 0, 100);";
+                endProp.expression = fillExpr;
 
                 // --- TRANSFORM EXPRESSIONS ---
                 // Position

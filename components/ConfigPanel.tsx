@@ -227,7 +227,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({ config, onChange, lrcContent 
             <input
               type="range"
               min="0"
-              max="50"
+              max="30"
               value={config.textLift}
               onChange={(e) => handleChange('textLift', parseInt(e.target.value))}
               className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
