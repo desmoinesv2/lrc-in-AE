@@ -1,0 +1,5 @@
+{
+  "name": "LyricalAE - 歌词视频生成器",
+  "description": "生成 After Effects 脚本，实现类似 Apple Music 的滚动歌词动画效果。支持自定义字体、颜色和运动参数。",
+  "requestFramePermissions": []
+}
